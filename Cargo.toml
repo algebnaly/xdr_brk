@@ -1,0 +1,10 @@
+[package]
+name = "xdr_brk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0", features = ["alloc", "derive"] }
+
+[profile.dev.package."*"]
+opt-level = 0
