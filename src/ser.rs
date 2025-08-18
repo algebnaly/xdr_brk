@@ -349,6 +349,7 @@ mod tests {
 
     #[test]
     fn test_serialize_enum() {
+        #[allow(unused)]
         #[derive(Debug, Serialize, PartialEq)]
         enum E {
             ZERO,

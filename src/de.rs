@@ -1,14 +1,11 @@
-use std::ops::{AddAssign, MulAssign, Neg};
-
 use serde::Deserialize;
-use serde::de::value::U32Deserializer;
 use serde::de::{
-    self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, VariantAccess,
+    self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess,
     Visitor,
 };
 
 use crate::error::{Error, Result};
-use crate::{PADDING_BYTES, U32_SIZE, U64_SIZE, padding_len};
+use crate::{U32_SIZE, U64_SIZE, padding_len};
 
 #[derive(Debug)]
 pub struct XDRDeserializer<'de> {
@@ -442,14 +439,14 @@ impl<'de, 'a> SeqAccess<'de> for LengthAccessor<'a, 'de> {
 
 impl<'a, 'de> MapAccess<'de> for LengthAccessor<'a, 'de> {
     type Error = Error;
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
+    fn next_key_seed<K>(&mut self, _seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
     {
         todo!()
     }
 
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
+    fn next_value_seed<V>(&mut self, _seed: V) -> Result<V::Value>
     where
         V: DeserializeSeed<'de>,
     {
@@ -771,6 +768,14 @@ mod tests {
     use serde::Deserialize;
 
     use crate::from_bytes;
+    
+    #[test]
+    fn test_deserialize_void_struct(){
+        #[derive(Deserialize)]
+        struct VoidStruct;
+        let data: &[u8] = &[];
+        let _void: VoidStruct = from_bytes(data).unwrap();
+    }
 
     #[test]
     fn test_deserialize_u8() {

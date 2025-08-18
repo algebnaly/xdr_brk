@@ -17,12 +17,13 @@ pub const U64_SIZE: usize = 8;
 #[cfg(test)]
 mod tests {
     use serde::Serialize;
-
-    use super::*;
-
+    use crate::ser::to_bytes;
     #[test]
     fn serialize_void() {
         #[derive(Serialize)]
         struct Void;
+        let void = Void{};
+        let bytes = to_bytes(&void).unwrap();
+        assert_eq!(bytes, &[]);
     }
 }
