@@ -62,4 +62,17 @@ name = "xdr_brk"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "xdr_brk_enum",
+]
+
+[[package]]
+name = "xdr_brk_enum"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "951120174fae5475af2d31775d159e4b78c411a9f67629d68f174798c2d31285"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn",
 ]
