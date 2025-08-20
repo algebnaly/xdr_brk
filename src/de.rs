@@ -1,8 +1,5 @@
 use serde::Deserialize;
-use serde::de::{
-    self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess,
-    Visitor,
-};
+use serde::de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
 
 use crate::error::{Error, Result};
 use crate::{U32_SIZE, U64_SIZE, padding_len};
@@ -51,7 +48,6 @@ impl<'de> XDRDeserializer<'de> {
     }
 
     fn parse_u32(&mut self) -> Result<u32> {
-        println!("parse_u32: {:?}", self);
         let v = u32::from_be_bytes(
             self.input[..U32_SIZE]
                 .try_into()
@@ -115,21 +111,6 @@ impl<'de> XDRDeserializer<'de> {
         self.input = &self.input[U64_SIZE..];
         Ok(v)
     }
-
-    /// handle bytes as Vec<u8> without using compact format
-    // fn parse_bytes(&mut self) -> Result<&'de [u8]> {
-    //     let len = self.parse_u32()? as usize;
-    //     let padded_len = len + padding_len(len as usize);
-    //     if self.input.len() < padded_len {
-    //         return Err(Error::EndOfFile);
-    //     }
-    //     if self.input[len..padded_len].iter().any(|i| *i != 0) {
-    //         return Err(Error::NonZeroPadding);
-    //     }
-    //     let v = &self.input[..len];
-    //     self.input = &self.input[padded_len..];
-    //     Ok(v)
-    // }
 
     fn parse_bytes(&mut self) -> Result<Vec<u8>> {
         let len = self.parse_u32()?;
@@ -730,7 +711,6 @@ impl<'de, 'a> de::Deserializer<'de> for &mut MyEnumAccess<'a, 'de> {
 impl<'de, 'a> VariantAccess<'de> for MyEnumAccess<'a, 'de> {
     type Error = Error;
     fn unit_variant(self) -> std::result::Result<(), Self::Error> {
-        println!("unit_variant");
         Ok(())
     }
 
@@ -738,7 +718,6 @@ impl<'de, 'a> VariantAccess<'de> for MyEnumAccess<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        println!("newtype_variant_seed");
         seed.deserialize(&mut *self.de)
     }
 
@@ -750,7 +729,6 @@ impl<'de, 'a> VariantAccess<'de> for MyEnumAccess<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        println!("struct_variant");
         visitor.visit_seq(LengthAccessor::new(self.de, fields.len()))
     }
 
@@ -758,7 +736,6 @@ impl<'de, 'a> VariantAccess<'de> for MyEnumAccess<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        println!("tuple_variant");
         visitor.visit_seq(LengthAccessor::new(self.de, len))
     }
 }
@@ -768,9 +745,9 @@ mod tests {
     use serde::Deserialize;
 
     use crate::from_bytes;
-    
+
     #[test]
-    fn test_deserialize_void_struct(){
+    fn test_deserialize_void_struct() {
         #[derive(Deserialize)]
         struct VoidStruct;
         let data: &[u8] = &[];
