@@ -114,17 +114,16 @@ impl<'de> XDRDeserializer<'de> {
 
     fn parse_bytes(&mut self) -> Result<Vec<u8>> {
         let len = self.parse_u32()?;
-
-        if self.input.len() < (len as usize) * U32_SIZE {
+        let padded_len = len as usize + padding_len(len as usize);
+        if self.input.len() < padded_len {
             return Err(Error::EndOfFile);
         }
-        let v: Vec<u8> = self
-            .input
-            .iter()
-            .step_by(U32_SIZE)
-            .take(len as usize)
-            .copied()
-            .collect();
+
+        let v = self.input[..len as usize].to_vec();
+        if self.input[len as usize..padded_len].iter().any(|&b| b != 0) {
+            return Err(Error::NonZeroPadding);
+        }
+        self.input = &self.input[padded_len..];
         Ok(v)
     }
 
@@ -342,6 +341,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut XDRDeserializer<'de> {
         V: Visitor<'de>,
     {
         let len = self.parse_u32()?;
+        println!("deserialize map len: {}", len);
         let map_accessor = LengthAccessor::new(self, len as usize);
         visitor.visit_map(map_accessor)
     }
@@ -420,18 +420,22 @@ impl<'de, 'a> SeqAccess<'de> for LengthAccessor<'a, 'de> {
 
 impl<'a, 'de> MapAccess<'de> for LengthAccessor<'a, 'de> {
     type Error = Error;
-    fn next_key_seed<K>(&mut self, _seed: K) -> Result<Option<K::Value>>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
     {
-        todo!()
+        if self.remain_items == 0 {
+            return Ok(None);
+        }
+        self.remain_items -= 1;
+        Ok(Some(seed.deserialize(&mut *self.de)?))
     }
 
-    fn next_value_seed<V>(&mut self, _seed: V) -> Result<V::Value>
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: DeserializeSeed<'de>,
     {
-        todo!()
+        seed.deserialize(&mut *self.de)
     }
 }
 
@@ -869,5 +873,31 @@ mod tests {
         let e: E = from_bytes(data).unwrap();
         let expected_e = E::TWO;
         assert_eq!(e, expected_e);
+    }
+    
+    #[test]
+    fn test_deserialize_bytes(){
+        use serde_bytes::ByteBuf;
+        let data: &[u8] = &[0,0,0,3,1,2,3,0];
+        let bytes: ByteBuf = from_bytes(data).unwrap();
+        assert_eq!(bytes, ByteBuf::from(vec![1, 2, 3]));
+    }
+    
+    #[test]
+    fn test_deserialize_map(){
+        use std::collections::HashMap;
+        let map_bytes = vec![
+            0, 0, 0, 2, // len (u32)
+            0, 0, 0, 0, 0, 0, 0, 1, // key 1 (u64)
+            0, 0, 0, 2, // value 1 (u16)
+            0, 0, 0, 0, 0, 0, 0, 3, // key 2 (u64)
+            0, 0, 0, 4, // value 2 (u16)
+        ];
+        let map: HashMap<u64, u16> = from_bytes(&map_bytes).unwrap();
+        let expected_map = HashMap::from([
+            (1, 2),
+            (3, 4),
+        ]);
+        assert_eq!(map, expected_map);
     }
 }

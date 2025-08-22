@@ -26,7 +26,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Self;
-    type SerializeMap = Self;
+    type SerializeMap = MapSerializer<'a>;
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
@@ -56,7 +56,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_u32(v as u32)
     }
     fn serialize_u32(self, v: u32) -> std::result::Result<Self::Ok, Self::Error> {
-        self.output.extend(v.to_ne_bytes());
+        self.output.extend(v.to_be_bytes());
         Ok(())
     }
 
@@ -108,11 +108,14 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> std::result::Result<Self::Ok, Self::Error> {
-        let len = v.len();
-        self.output.extend((len as u32).to_be_bytes());
-        for item in v {
-            self.serialize_u8(*item)?;
+        let bytes_len = v.len();
+        if bytes_len > u32::MAX as usize {
+            return Err(Error::Message("bytes too long".to_string()));
         }
+        self.output.extend((bytes_len as u32).to_be_bytes());
+        let padding_len = padding_len(bytes_len);
+        self.output.extend(v);
+        self.output.extend(&PADDING_BYTES[..padding_len]);
         Ok(())
     }
 
@@ -124,6 +127,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(())
     }
 
+    // note that, using serialize_*_variant will not handle manual assigned discriminants,
+    // which can be handled by XDREnumSerialize derive macro
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -132,17 +137,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     ) -> std::result::Result<Self::Ok, Self::Error> {
         self.output.extend(variant_index.to_be_bytes());
         Ok(())
-    }
-
-    fn serialize_newtype_struct<T>(
-        self,
-        _name: &'static str,
-        value: &T,
-    ) -> std::result::Result<Self::Ok, Self::Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T>(
@@ -157,49 +151,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     {
         self.output.extend(variant_index.to_be_bytes());
         value.serialize(self)
-    }
-    fn serialize_seq(
-        self,
-        len: Option<usize>,
-    ) -> std::result::Result<Self::SerializeSeq, Self::Error> {
-        let len = len.ok_or(Self::Error::SequenceWithoutLength)? as u32;
-        self.output.extend(len.to_be_bytes());
-        Ok(self)
-    }
-
-    // there is no tuple in XDR, just handle as struct
-    fn serialize_tuple(
-        self,
-        _len: usize,
-    ) -> std::result::Result<Self::SerializeTuple, Self::Error> {
-        Ok(self)
-    }
-
-    // there is no tuple in XDR, just handle as struct
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> std::result::Result<Self::SerializeTupleStruct, Self::Error> {
-        Ok(self)
-    }
-
-    // there is not map in XDR, just handle as Variable Length Array
-    fn serialize_map(
-        self,
-        len: Option<usize>,
-    ) -> std::result::Result<Self::SerializeMap, Self::Error> {
-        let len = len.ok_or(Self::Error::SequenceWithoutLength)? as u32;
-        self.output.extend(len.to_be_bytes());
-        Ok(self)
-    }
-
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> std::result::Result<Self::SerializeStruct, Self::Error> {
-        Ok(self)
     }
 
     fn serialize_tuple_variant(
@@ -222,6 +173,65 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         _len: usize,
     ) -> std::result::Result<Self::SerializeStructVariant, Self::Error> {
         self.output.extend(variant_index.to_be_bytes());
+        Ok(self)
+    }
+
+    fn serialize_newtype_struct<T>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> std::result::Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_seq(
+        self,
+        len: Option<usize>,
+    ) -> std::result::Result<Self::SerializeSeq, Self::Error> {
+        let len = len.ok_or(Self::Error::SequenceWithoutLength)? as u32;
+        self.output.extend(len.to_be_bytes());
+        Ok(self)
+    }
+
+    // there is no tuple in XDR, just handle as struct
+    fn serialize_tuple(
+        self,
+        _len: usize,
+    ) -> std::result::Result<Self::SerializeTuple, Self::Error> {
+        Ok(self)
+    }
+
+    // there is no tuple struct in XDR, just handle as struct
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> std::result::Result<Self::SerializeTupleStruct, Self::Error> {
+        Ok(self)
+    }
+
+    // there is not map in XDR, just handle as Variable Length Array
+    fn serialize_map(
+        self,
+        len: Option<usize>,
+    ) -> std::result::Result<Self::SerializeMap, Self::Error> {
+        let len = len.ok_or(Self::Error::SequenceWithoutLength)? as u32;
+        self.output.extend(len.to_be_bytes());
+        Ok(MapSerializer {
+            serializer: self,
+            current_key: None,
+            kv_pairs: Vec::new(),
+        })
+    }
+
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> std::result::Result<Self::SerializeStruct, Self::Error> {
         Ok(self)
     }
 }
@@ -280,6 +290,54 @@ impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
         value.serialize(&mut **self)
     }
     fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+}
+
+pub struct MapSerializer<'a> {
+    serializer: &'a mut Serializer,
+    current_key: Option<Vec<u8>>,
+    kv_pairs: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+impl<'a> ser::SerializeMap for MapSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+    fn serialize_key<T>(&mut self, key: &T) -> std::result::Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let mut serializer = Serializer { output: Vec::new() };
+        key.serialize(&mut serializer)?;
+        if self.current_key.is_none() {
+            self.current_key = Some(serializer.output);
+        } else {
+            return Err(Error::Message("previous key exists".to_owned()));
+        }
+        Ok(())
+    }
+    fn serialize_value<T>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let mut serializer = Serializer { output: Vec::new() };
+        value.serialize(&mut serializer)?;
+        if let Some(key) = self.current_key.take() {
+            self.kv_pairs.push((key, serializer.output));
+        } else {
+            return Err(Error::Message("no key exists".to_owned()));
+        }
+        Ok(())
+    }
+    fn end(mut self) -> std::result::Result<Self::Ok, Self::Error> {
+        if self.current_key.is_some() {
+            return Err(Error::Message("trailing key exists at end".to_owned()));
+        }
+        self.kv_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        for (key, value) in self.kv_pairs {
+            self.serializer.output.extend_from_slice(&key);
+            self.serializer.output.extend_from_slice(&value);
+        }
         Ok(())
     }
 }
@@ -360,5 +418,37 @@ mod tests {
         let e = E::TWO;
         let data = to_bytes(&e).unwrap(); // serialize enum to u32 (to_be_bytes)
         assert_eq!(data, vec![0, 0, 0, 2]);
+    }
+
+    #[test]
+    fn test_serialize_bytes() {
+        use serde_bytes::{ByteBuf, Bytes};
+        let bytes = ByteBuf::from(vec![1, 2, 3]);
+        let serialized_bytes = to_bytes(&bytes).unwrap();
+        let expected_bytes = vec![0, 0, 0, 3, 1, 2, 3, 0];
+        assert_eq!(&serialized_bytes, &expected_bytes);
+
+        let data: &[u8] = &[1, 2, 3];
+        let data_bytes = Bytes::new(data);
+        let serialized_data_bytes = to_bytes(&data_bytes).unwrap();
+        let expected_data_bytes = vec![0, 0, 0, 3, 1, 2, 3, 0];
+        assert_eq!(serialized_data_bytes, expected_data_bytes);
+    }
+
+    #[test]
+    fn test_serialize_map() {
+        use std::collections::HashMap;
+        let mut map: HashMap<u64, u16> = HashMap::new();
+        map.insert(1, 2);
+        map.insert(3, 4);
+        let serialized_map_bytes = to_bytes(&map).unwrap();
+        let expected_map_bytes = vec![
+            0, 0, 0, 2, // len (u32)
+            0, 0, 0, 0, 0, 0, 0, 1, // key 1 (u64)
+            0, 0, 0, 2, // value 1 (u16)
+            0, 0, 0, 0, 0, 0, 0, 3, // key 2 (u64)
+            0, 0, 0, 4, // value 2 (u16)
+        ];
+        assert_eq!(serialized_map_bytes, expected_map_bytes);
     }
 }

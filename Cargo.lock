@@ -30,6 +30,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8437fd221bde2d4ca316d61b90e337e9e702b3820b87d63caa9ba6c02bd06d96"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -62,14 +71,15 @@ name = "xdr_brk"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_bytes",
  "xdr_brk_enum",
 ]
 
 [[package]]
 name = "xdr_brk_enum"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "951120174fae5475af2d31775d159e4b78c411a9f67629d68f174798c2d31285"
+checksum = "bec507eb0e3fa573819b9d6b294bda5d6207bc5aa079285ba9f3b38d93e307bb"
 dependencies = [
  "proc-macro2",
  "quote",
