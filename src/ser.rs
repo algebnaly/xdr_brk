@@ -451,4 +451,12 @@ mod tests {
         ];
         assert_eq!(serialized_map_bytes, expected_map_bytes);
     }
+
+    #[test]
+    fn test_serialize_fixed_length_array() {
+        let data: [u8; 3] = [1, 2, 3];
+        let serialized_data = to_bytes(&data).unwrap();
+        let expected_data = vec![0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3];
+        assert_eq!(serialized_data, expected_data);
+    }
 }

@@ -341,7 +341,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut XDRDeserializer<'de> {
         V: Visitor<'de>,
     {
         let len = self.parse_u32()?;
-        println!("deserialize map len: {}", len);
         let map_accessor = LengthAccessor::new(self, len as usize);
         visitor.visit_map(map_accessor)
     }
@@ -874,17 +873,17 @@ mod tests {
         let expected_e = E::TWO;
         assert_eq!(e, expected_e);
     }
-    
+
     #[test]
-    fn test_deserialize_bytes(){
+    fn test_deserialize_bytes() {
         use serde_bytes::ByteBuf;
-        let data: &[u8] = &[0,0,0,3,1,2,3,0];
+        let data: &[u8] = &[0, 0, 0, 3, 1, 2, 3, 0];
         let bytes: ByteBuf = from_bytes(data).unwrap();
         assert_eq!(bytes, ByteBuf::from(vec![1, 2, 3]));
     }
-    
+
     #[test]
-    fn test_deserialize_map(){
+    fn test_deserialize_map() {
         use std::collections::HashMap;
         let map_bytes = vec![
             0, 0, 0, 2, // len (u32)
@@ -894,10 +893,7 @@ mod tests {
             0, 0, 0, 4, // value 2 (u16)
         ];
         let map: HashMap<u64, u16> = from_bytes(&map_bytes).unwrap();
-        let expected_map = HashMap::from([
-            (1, 2),
-            (3, 4),
-        ]);
+        let expected_map = HashMap::from([(1, 2), (3, 4)]);
         assert_eq!(map, expected_map);
     }
 }

@@ -1,12 +1,24 @@
-# XDR serializetion and deserializetion library inspired by [serde-xdr](https://github.com/jvff/serde-xdr) with enum variant index support.
+# XDR serializetion and deserializetion library
+
+This library is inspired by [serde-xdr](https://github.com/jvff/serde-xdr) and adds support for Enum variants with explicit discriminants (manual enum tag values).
 
 The overall `Data Type Map` are the same with [serde-xdr](https://github.com/jvff/serde-xdr).
 
-Since `f128` is not in the stable rust, we do not support ser/deserialise it for now.
+> Since `f128` is not in the stable rust, we do not support ser/deserialise it for now.
 
 ## Opaque type handling
 `Vec<u8>` are handle as normal Vec<T>, this means every u8 element are serialized to be u32.
 for XDR Opaque type, one should consider using `serde_bytes`, which provides `Bytes` and `BytesBuf`.
+
+for fixed length bytes, we provide `xdr_brk::opaque::fixed_length_bytes`, the following code shows its usage:
+
+```rust
+#[derive(Serialize)]
+struct FixedLengthBytes{
+    #[serde(with = "xdr_brk::opaque::fixed_length_bytes")]
+    data: [u8; 16]
+}
+```
 
 ## Note on some non-XDR compatible type
 
@@ -46,13 +58,15 @@ const fn discriminant_42() -> u32 {
 
 const C_4: u32 = 4;
 
-#[repr(u32)]// this is needed, as XDR enum discriminant must be u32
-#[derive(XDREnumSerialize,XDREnumDeserialize)]
+#[repr(u32)]// Required for XDR enum discriminants
+#[derive(Debug, PartialEq, XDREnumSerialize,XDREnumDeserialize)]
 enum MyEnum {
     Variant1 = discriminant_42(),
     Variant2(u8, u16), // discriminant for this variant is 43
     Variant3(u8) = 100,
     Variant4{a: u32, b: u64} = C_4,
+    #[default_arm] // handle unknown discriminant, see docs for details
+    DefaultArm(u32),
 }
 
 fn main(){

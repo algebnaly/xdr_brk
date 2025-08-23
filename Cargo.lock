@@ -77,9 +77,7 @@ dependencies = [
 
 [[package]]
 name = "xdr_brk_enum"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bec507eb0e3fa573819b9d6b294bda5d6207bc5aa079285ba9f3b38d93e307bb"
+version = "0.1.2"
 dependencies = [
  "proc-macro2",
  "quote",
