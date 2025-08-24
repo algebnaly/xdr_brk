@@ -2,20 +2,41 @@
 
 This library is inspired by [serde-xdr](https://github.com/jvff/serde-xdr) and adds support for Enum variants with explicit discriminants (manual enum tag values).
 
-The overall `Data Type Map` are the same with [serde-xdr](https://github.com/jvff/serde-xdr).
+# Data Type Mapping
 
-> Since `f128` is not in the stable rust, we do not support ser/deserialise it for now.
+
+| Rust / Serde type       | XDR type            | Notes |
+|--------------------------|---------------------------|-------|
+| `i8`                     | `int`                 |  deserialize a value outside `i8` range will cause error |
+| `i16`                    | `int`                 |  deserialize a value outside `i16` range will cause error |
+| `i32`                    | `int`                 |   |
+| `i64`                    | `hyper`               |   |
+| `u8`                     | `unsigned int`        | deserialize a value outside `u8` range will cause error |
+| `u16`                    | `unsigned int`        | deserialize a value outside `u16` range will cause error |
+| `u32`                    | `unsigned int`        |   |
+| `u64`                    | `unsigned hyper`      |   |
+| `f32`                    | `float`               |   |
+| `f64`                    | `double`              |   |
+| `bool`                   | `bool`                |   |
+| `String`                 | `string`              | XDR string is a length-prefixed byte sequence, intended for ASCII but often used with UTF-8 in modern implementations |
+| see Opaque type handling | `opaque[n]`           | fixed-size byte array |
+| see Opaque type handling | `opaque<>`            | variable-size byte array |
+| `struct`                 | `struct`              |  |
+| `enum` + `#[repr(u32)]`  | `enum`                | discriminant must be a u32 |
+| `Option<T>`              | `optional<T>`         | Optional type |
+| `[T; n]`                 | `T[n]`                | Fixed-length array |
+| `Vec<T>`                 | `T<>`                 | variable-length array with size header |
 
 ## Opaque type handling
 `Vec<u8>` are handle as normal Vec<T>, this means every u8 element are serialized to be u32.
 for XDR Opaque type, one should consider using `serde_bytes`, which provides `Bytes` and `BytesBuf`.
 
-for fixed length bytes, we provide `xdr_brk::opaque::fixed_length_bytes`, the following code shows its usage:
+for fixed length bytes, we provide `xdr_brk::fixed_length_bytes`, the following code shows its usage:
 
 ```rust
 #[derive(Serialize)]
 struct FixedLengthBytes{
-    #[serde(with = "xdr_brk::opaque::fixed_length_bytes")]
+    #[serde(with = "xdr_brk::fixed_length_bytes")]
     data: [u8; 16]
 }
 ```
@@ -29,7 +50,7 @@ also note that Map in this crate are serialized as Vec<(Key, Value)>, and sorted
 ## Usage
 ```toml
 [dependencies]
-xdr-brk = "0.1"
+xdr_brk = "0.1"
 serde = "1.0"
 ```
 
