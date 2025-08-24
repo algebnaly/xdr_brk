@@ -57,4 +57,27 @@ mod tests {
         let deserialized_bytes: FixedLengthBytes<3> = from_bytes(&serialized_bytes).unwrap();
         assert_eq!(deserialized_bytes, bytes);
     }
+
+    #[test]
+    fn test_serialize_deserialize_string() {
+        let s = String::from("hello");
+        let serialized_s = to_bytes(&s).unwrap();
+        assert_eq!(
+            serialized_s,
+            &[0, 0, 0, 5, // length 5 (u32)
+                104, 101, 108, 108, 111, 0, 0, 0]
+        );
+        let deserialized_s: String = from_bytes(&serialized_s).unwrap();
+        assert_eq!(deserialized_s, s);
+        
+        let str_val = "hello";
+        let serialized_str = to_bytes(&str_val).unwrap();
+        assert_eq!(
+            serialized_str,
+            &[0, 0, 0, 5, // length 5 (u32)
+                104, 101, 108, 108, 111, 0, 0, 0]
+        );
+        let deserialized_str: &str = from_bytes(&serialized_str).unwrap();
+        assert_eq!(deserialized_str, str_val);
+    }
 }
