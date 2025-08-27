@@ -6,7 +6,7 @@ use crate::{U32_SIZE, U64_SIZE, padding_len};
 
 #[derive(Debug)]
 pub struct XDRDeserializer<'de> {
-    input: &'de [u8],
+    pub(crate) input: &'de [u8],
 }
 
 impl<'de> XDRDeserializer<'de> {
@@ -743,6 +743,14 @@ impl<'de, 'a> VariantAccess<'de> for MyEnumAccess<'a, 'de> {
     }
 }
 
+pub fn deserialize_len<'a, T: Deserialize<'a>>(data: &'a [u8]) -> Result<usize> {
+    let total_len = data.len();
+    let mut deserializer = XDRDeserializer::from_bytes(data);
+    let _ = T::deserialize(&mut deserializer);
+    let remaining_len = deserializer.input.len();
+    Ok(total_len - remaining_len)
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;
@@ -895,5 +903,32 @@ mod tests {
         let map: HashMap<u64, u16> = from_bytes(&map_bytes).unwrap();
         let expected_map = HashMap::from([(1, 2), (3, 4)]);
         assert_eq!(map, expected_map);
+    }
+
+    #[test]
+    fn test_deserialize_len() {
+        use crate::de::deserialize_len;
+        let data: &[u8] = &[
+            0, 0, 0, 3, // real data
+            1, 2, 3, 4, // remaining data
+        ];
+        let len = deserialize_len::<u32>(data).unwrap();
+        assert_eq!(len, 4);
+
+        #[allow(unused)]
+        #[derive(Debug, Deserialize)]
+        struct MyStruct {
+            s: String,
+            i: i32,
+        }
+
+        let data: &[u8] = &[
+            0, 0, 0, 5, // len (u32)
+            b'h', b'e', b'l', b'l', b'o', 0, 0, 0, // padding to align 4-byte boundary
+            0, 0, 0, 42, // (u32)
+        ];
+        let len = deserialize_len::<MyStruct>(data).unwrap();
+        
+        assert_eq!(len, 16);
     }
 }

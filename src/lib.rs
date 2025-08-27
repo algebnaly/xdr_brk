@@ -4,10 +4,10 @@ pub mod fixed_length_bytes;
 mod opaque;
 mod ser;
 
-pub use de::{XDRDeserializer, from_bytes};
+pub use de::{XDRDeserializer, from_bytes, deserialize_len};
 pub use error::{Error, Result};
 pub use opaque::FixedLengthBytes;
-pub use ser::{XDRSerializer, to_bytes};
+pub use ser::{XDRSerializer, to_bytes, serialize_len};
 pub use xdr_brk_enum::{XDREnumDeserialize, XDREnumSerialize};
 
 pub(crate) fn padding_len(len: usize) -> usize {

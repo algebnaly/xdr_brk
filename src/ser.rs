@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub struct XDRSerializer {
-    output: Vec<u8>,
+    pub(crate) output: Vec<u8>,
 }
 
 pub fn to_bytes<T>(value: &T) -> Result<Vec<u8>>
@@ -399,6 +399,15 @@ impl<'a> ser::SerializeStructVariant for &'a mut XDRSerializer {
         Ok(())
     }
 }
+
+pub fn serialize_len(value: &impl Serialize) -> std::result::Result<usize, Error> {
+    let mut serializer = XDRSerializer {
+        output: Vec::new(),
+    };
+    value.serialize(&mut serializer)?;
+    Ok(serializer.output.len())
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Serialize;
@@ -458,5 +467,30 @@ mod tests {
         let serialized_data = to_bytes(&data).unwrap();
         let expected_data = vec![0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3];
         assert_eq!(serialized_data, expected_data);
+    }
+
+    #[test]
+    fn test_serialize_fixed_length_array_with_length() {
+        use crate::ser::serialize_len;
+        let data: [u8; 3] = [1, 2, 3];
+        let serialized_len = serialize_len(&data).unwrap();
+        let expected_len = 12;
+        assert_eq!(serialized_len, expected_len);
+        
+        #[derive(Debug, Serialize)]
+        struct MyStruct {
+            s: String,
+            i: i32
+        }
+        
+        let data = MyStruct {
+            s: "hello".to_string(),
+            i: 42
+        };
+        let serialize_len = serialize_len(&data).unwrap();
+        let expected_len = 4 // string header length
+            + 8 // string data length with padding
+            + 4; // i32 length
+        assert_eq!(serialize_len, expected_len);
     }
 }
