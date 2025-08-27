@@ -6,7 +6,7 @@ use crate::{
     padding_len,
 };
 
-pub struct Serializer {
+pub struct XDRSerializer {
     output: Vec<u8>,
 }
 
@@ -14,12 +14,12 @@ pub fn to_bytes<T>(value: &T) -> Result<Vec<u8>>
 where
     T: Serialize,
 {
-    let mut serializer = Serializer { output: Vec::new() };
+    let mut serializer = XDRSerializer { output: Vec::new() };
     value.serialize(&mut serializer)?;
     Ok(serializer.output)
 }
 
-impl<'a> ser::Serializer for &'a mut Serializer {
+impl<'a> ser::Serializer for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = Self;
@@ -236,7 +236,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeSeq for &'a mut Serializer {
+impl<'a> ser::SerializeSeq for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
@@ -251,7 +251,7 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeTuple for &'a mut Serializer {
+impl<'a> ser::SerializeTuple for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
@@ -266,7 +266,7 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
+impl<'a> ser::SerializeTupleStruct for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
@@ -280,7 +280,7 @@ impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
+impl<'a> ser::SerializeTupleVariant for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
@@ -295,7 +295,7 @@ impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
 }
 
 pub struct MapSerializer<'a> {
-    serializer: &'a mut Serializer,
+    serializer: &'a mut XDRSerializer,
     current_key: Option<Vec<u8>>,
     kv_pairs: Vec<(Vec<u8>, Vec<u8>)>,
 }
@@ -307,7 +307,7 @@ impl<'a> ser::SerializeMap for MapSerializer<'a> {
     where
         T: ?Sized + Serialize,
     {
-        let mut serializer = Serializer { output: Vec::new() };
+        let mut serializer = XDRSerializer { output: Vec::new() };
         key.serialize(&mut serializer)?;
         if self.current_key.is_none() {
             self.current_key = Some(serializer.output);
@@ -320,7 +320,7 @@ impl<'a> ser::SerializeMap for MapSerializer<'a> {
     where
         T: ?Sized + Serialize,
     {
-        let mut serializer = Serializer { output: Vec::new() };
+        let mut serializer = XDRSerializer { output: Vec::new() };
         value.serialize(&mut serializer)?;
         if let Some(key) = self.current_key.take() {
             self.kv_pairs.push((key, serializer.output));
@@ -342,7 +342,7 @@ impl<'a> ser::SerializeMap for MapSerializer<'a> {
     }
 }
 
-impl<'a> ser::SerializeMap for &'a mut Serializer {
+impl<'a> ser::SerializeMap for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_key<T>(&mut self, key: &T) -> std::result::Result<(), Self::Error>
@@ -364,7 +364,7 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeStruct for &'a mut Serializer {
+impl<'a> ser::SerializeStruct for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(
@@ -382,7 +382,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
+impl<'a> ser::SerializeStructVariant for &'a mut XDRSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(
