@@ -31,7 +31,9 @@ where
 impl<'de> XDRDeserializer<'de> {
     fn parse_bool(&mut self) -> Result<bool> {
         let v = u32::from_be_bytes(
-            self.input[..U32_SIZE]
+            self.input
+                .get(..U32_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -49,7 +51,9 @@ impl<'de> XDRDeserializer<'de> {
 
     fn parse_u32(&mut self) -> Result<u32> {
         let v = u32::from_be_bytes(
-            self.input[..U32_SIZE]
+            self.input
+                .get(..U32_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -60,7 +64,9 @@ impl<'de> XDRDeserializer<'de> {
 
     fn parse_u64(&mut self) -> Result<u64> {
         let v = u64::from_be_bytes(
-            self.input[..U64_SIZE]
+            self.input
+                .get(..U64_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -70,7 +76,9 @@ impl<'de> XDRDeserializer<'de> {
     }
     fn parse_i32(&mut self) -> Result<i32> {
         let v = i32::from_be_bytes(
-            self.input[..U32_SIZE]
+            self.input
+                .get(..U32_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -81,7 +89,9 @@ impl<'de> XDRDeserializer<'de> {
 
     fn parse_i64(&mut self) -> Result<i64> {
         let v = i64::from_be_bytes(
-            self.input[..U32_SIZE]
+            self.input
+                .get(..U64_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -92,7 +102,9 @@ impl<'de> XDRDeserializer<'de> {
 
     fn parse_f32(&mut self) -> Result<f32> {
         let v = f32::from_be_bytes(
-            self.input[..U32_SIZE]
+            self.input
+                .get(..U32_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -103,7 +115,9 @@ impl<'de> XDRDeserializer<'de> {
 
     fn parse_f64(&mut self) -> Result<f64> {
         let v = f64::from_be_bytes(
-            self.input[..U64_SIZE]
+            self.input
+                .get(..U64_SIZE)
+                .ok_or(Error::EndOfFile)?
                 .try_into()
                 .map_err(|_| Error::EndOfFile)?,
         );
@@ -130,6 +144,9 @@ impl<'de> XDRDeserializer<'de> {
     fn parse_str(&mut self) -> Result<&'de str> {
         let len = self.parse_u32()?;
         let padded_len = len as usize + padding_len(len as usize);
+        if self.input.len() < padded_len {
+            return Err(Error::EndOfFile);
+        }
         let v = &self.input[..len as usize];
         self.input = &self.input[padded_len..];
         let s = std::str::from_utf8(v)?;
@@ -928,7 +945,7 @@ mod tests {
             0, 0, 0, 42, // (u32)
         ];
         let len = deserialize_len::<MyStruct>(data).unwrap();
-        
+
         assert_eq!(len, 16);
     }
 }

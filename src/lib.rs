@@ -57,6 +57,20 @@ mod tests {
         let deserialized_bytes: FixedLengthBytes<3> = from_bytes(&serialized_bytes).unwrap();
         assert_eq!(deserialized_bytes, bytes);
     }
+    
+    #[test]
+    fn test_deserialize_fixed_length_bytes_with_error(){
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct FixedLengthBytes<const N: usize> {
+            #[serde(with = "crate::fixed_length_bytes")]
+            bytes: [u8; N],
+        }
+        let data: &[u8] = &[1, 2, 3];
+        let deserialize_result: Result<FixedLengthBytes<3>, crate::Error> = from_bytes(&data);
+        assert!(deserialize_result.is_err());
+    }
 
     #[test]
     fn test_serialize_deserialize_string() {
